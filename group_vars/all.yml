@@ -1,0 +1,7 @@
+create_phpinfo: false
+plugin_implemented: true
+
+ansible_host: '127.0.0.1'
+ansible_port: 2210
+ansible_user: ansible
+ansible_ssh_common_args: '-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null'
