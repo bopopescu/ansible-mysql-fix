@@ -352,7 +352,7 @@ def user_delete(cursor, user, host, host_all, check_mode):
     return True
 
 def user_get_hostnames(cursor, user):
-    cursor.execute("SELECT Host FROM mysql.user WHERE user = %s", user)
+    cursor.execute("SELECT Host FROM mysql.user WHERE user = %s", (user,))
     hostnames_raw = cursor.fetchall()
     hostnames = []
 
