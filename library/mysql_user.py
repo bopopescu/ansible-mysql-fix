@@ -187,22 +187,57 @@ class InvalidHashError(Exception):
 # MySQL module specific support methods.
 #
 
-# User Authentication Management was change in MySQL 5.7
-# This is a generic check for if the server version is less than version 5.7
+# pluggable authentication:
+#   MySQL >= 5.5.7
+#   MariaDB >= 5.2.0
+
+# IDENTIFIED BY 'auth_string'
+#   MySQL >= 5.0.0
+#   MariaDB >= 5.0.0
+
+# IDENTIFIED BY PASSWORD 'hash_string'
+#   MySQL >= 5.0.0
+#   MariaDB >= 5.0.0
+
+# IDENTIFIED WITH auth_plugin
+#   MySQL >= 5.5.7
+# IDENTIFIED VIA auth_plugin
+#   MariaDB >= 5.2.0
+
+# IDENTIFIED WITH auth_plugin AS 'hash_string'
+#   MySQL >= 5.5.7
+# IDENTIFIED VIA auth_plugin USING 'hash_string'
+#   MariaDB >= 5.5.42? - 2015-02-24
+
+# IDENTIFIED WITH auth_plugin BY 'auth_string'
+#   MySQL >= 5.7.6
+# IDENTIFIED VIA auth_plugin BY 'auth_string'
+#  MariaDB >= ?
+
+# socket_peercred MariaDB 5.2.0
+# unix_socket MariaDB 5.2.11
+# auth_socket MySQL 5.5.10
+
+def parse_version(version_str):
+    return [
+        int(re.sub(r'^(\d*).*$', '0\\1', x))
+        for x in version_str.split('.')
+    ]
+
 def server_version_check(cursor):
     cursor.execute("SELECT VERSION()");
     result = cursor.fetchone()
     version_str = result[0]
-    version = version_str.split('.')
-
-    # Currently we have no facility to handle new-style password update on
-    # mariadb and the old-style update continues to work
-    if 'mariadb' in version_str.lower():
-        return True
-    if (int(version[0]) <= 5 and int(version[1]) < 7):
-        return True
-    else:
-        return False
+    version = parse_version(version_str)
+    maria_db = 'mariadb' in version_str.lower()
+    server = {
+        'maria_db': maria_db,
+        'pluggable_auth': ( maria_db and version >= [5, 2, 0] ) or ( version >= [5, 5, 7] ),
+        'new_style_password_update': not maria_db and version >= [5, 7, 6],
+        'old_user_mgmt': maria_db or version < [5, 7, 0]
+    }
+     
+    return server
 
 def get_mode(cursor):
     cursor.execute('SELECT @@GLOBAL.sql_mode')
@@ -263,7 +298,7 @@ def user_mod(cursor, user, host, host_all, password, encrypted, new_priv, append
         # Handle clear text and hashed passwords.
         if bool(password):
             # Determine what user management method server uses
-            old_user_mgmt = server_version_check(cursor)
+            old_user_mgmt = server_version_check(cursor)['old_user_mgmt']
 
             if old_user_mgmt:
                 cursor.execute("SELECT password FROM user WHERE user = %s AND host = %s", (user,host))
