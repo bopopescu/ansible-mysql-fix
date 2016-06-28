@@ -1,0 +1,21 @@
+- hosts: all
+  become: no
+
+  tasks:
+    - block:
+      - name: Create user (clear password)
+        mysql_user: |
+          name=foo
+          host=localhost
+          password=foobar
+          priv=*.*:ALL
+          login_host={{ inventory_hostname }}
+          login_user=root
+      - include: ../tests/user_exists.yml user='foo' host='localhost'
+      - name: Reset
+        mysql_user: |
+          name=foo
+          host=localhost
+          state=absent
+          login_host={{ inventory_hostname }}
+          login_user=root
