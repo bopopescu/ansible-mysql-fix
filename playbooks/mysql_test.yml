@@ -11,7 +11,7 @@
           login_host={{ inventory_hostname }}
           login_user=root
 
-    - block:
+    - block: # Create user (clear password)
       - name: Create user (clear password)
         mysql_user: |
           name=foo
@@ -37,7 +37,7 @@
           login_host={{ inventory_hostname }}
           login_user=root
 
-    - block:
+    - block: # Create user (encrypted password)
       - name: Create user (encrypted password 'tata')
         mysql_user: |
           name=foo
