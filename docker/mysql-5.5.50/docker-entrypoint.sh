@@ -17,6 +17,7 @@ done
 { \
 	echo "CREATE USER 'root'@'%' IDENTIFIED BY '';"; \
 	echo "GRANT ALL PRIVILEGES ON *.* TO 'root'@'%' WITH GRANT OPTION;"; \
+	echo "INSTALL PLUGIN auth_socket SONAME 'auth_socket.so';"; \
 } | "${mysql[@]}"
 
 if ! kill -s TERM "$pid" || ! wait "$pid"; then
