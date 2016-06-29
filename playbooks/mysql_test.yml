@@ -73,6 +73,23 @@
           login_host={{ inventory_hostname }}
           login_user=root
 
+    - block: # Create user (no password)
+      - name: Create user (no password)
+        mysql_user: |
+          name=foo
+          host=%
+          login_host={{ inventory_hostname }}
+          login_user=root
+      - include: ../tests/user_exists.yml user='foo' host='%'
+      - include: ../tests/user_can_connect_without_password.yml user='foo'
+      - name: Reset
+        mysql_user: |
+          name=foo
+          host=%
+          state=absent
+          login_host={{ inventory_hostname }}
+          login_user=root
+
     - block: # user_get_hostnames
       - name: Create user
         mysql_user: |
