@@ -1,0 +1,103 @@
+- block:
+  - name: Initialise
+    mysql_user: |
+      name=foo
+      host_all=yes
+      state=absent
+      login_host={{ inventory_hostname }}
+      login_user=root
+    tags: [ always ]
+  - name: Create dummy user for tests
+    mysql_user: |
+      name=bar
+      host=localhost
+      password=tutu
+      login_host={{ inventory_hostname }}
+      login_user=root
+
+- block: # Create user (clear password)
+  - name: Create user (clear password)
+    mysql_user: |
+      name=foo
+      host=%
+      password=foobar
+      login_host={{ inventory_hostname }}
+      login_user=root
+  - include: ../tests/user_exists.yml user='foo' host='%'
+  - include: ../tests/user_can_connect.yml user='foo' password='foobar'
+  - name: Change password (clear password)
+    mysql_user: |
+      name=foo
+      host=%
+      password=toto
+      login_host={{ inventory_hostname }}
+      login_user=root
+  - include: ../tests/user_can_connect.yml user='foo' password='toto'
+  - name: Reset
+    mysql_user: |
+      name=foo
+      host=%
+      state=absent
+      login_host={{ inventory_hostname }}
+      login_user=root
+
+- block: # Create user (encrypted password)
+  - name: Create user (encrypted password 'tata')
+    mysql_user: |
+      name=foo
+      host=%
+      password='*53C946569835FCDF430805D6A8114B14AA1CB16C'
+      encrypted=yes
+      login_host={{ inventory_hostname }}
+      login_user=root
+  - include: ../tests/user_exists.yml user='foo' host='%'
+  - include: ../tests/user_can_connect.yml user='foo' password='tata'
+  - name: Change password (encrypted password 'titi')
+    mysql_user: |
+      name=foo
+      host=%
+      password=*93167BFFB98EA277320FCCEC6F1B3E642B6CE38C
+      encrypted=yes
+      login_host={{ inventory_hostname }}
+      login_user=root
+  - include: ../tests/user_can_connect.yml user='foo' password='titi'
+  - name: Reset
+    mysql_user: |
+      name=foo
+      host=%
+      state=absent
+      login_host={{ inventory_hostname }}
+      login_user=root
+
+- block: # Create user (no password)
+  - name: Create user (no password)
+    mysql_user: |
+      name=foo
+      host=%
+      login_host={{ inventory_hostname }}
+      login_user=root
+  - include: ../tests/user_exists.yml user='foo' host='%'
+  - include: ../tests/user_can_connect_without_password.yml user='foo'
+  - name: Reset
+    mysql_user: |
+      name=foo
+      host=%
+      state=absent
+      login_host={{ inventory_hostname }}
+      login_user=root
+
+- block: # user_get_hostnames
+  - name: Create user
+    mysql_user: |
+      name=foo
+      host=%
+      password=toto
+      login_host={{ inventory_hostname }}
+      login_user=root
+  - name: Delete user
+    mysql_user: |
+      name=foo
+      host_all=yes
+      state=absent
+      login_host={{ inventory_hostname }}
+      login_user=root
