@@ -10,6 +10,14 @@
           state=absent
           login_host={{ inventory_hostname }}
           login_user=root
+        tags: [ always ]
+      - name: Create dummy user for tests
+        mysql_user: |
+          name=bar
+          host=localhost
+          password=tutu
+          login_host={{ inventory_hostname }}
+          login_user=root
 
     - block: # Create user (clear password)
       - name: Create user (clear password)
