@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # mysqld_safe does not work really well here
-sudo -u mysql /usr/local/mysql/bin/mysqld &
+/usr/local/mysql/bin/mysqld &
 pid="$!"
 
 mysql=( /usr/local/mysql/bin/mysql --protocol=socket -uroot )

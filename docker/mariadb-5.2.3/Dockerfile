@@ -4,9 +4,10 @@ RUN groupadd -r mysql && useradd -r -g mysql mysql
 
 ENV PATH=/usr/local/mysql/bin:$PATH
 
+RUN sed -i -e 's/archive.ubuntu.com\|security.ubuntu.com/old-releases.ubuntu.com/g' /etc/apt/sources.list
 RUN apt-get update
 RUN DEBIAN_FRONTEND=noninteractive \
-	apt-get install -y libdbi-perl libdbd-mysql-perl psmisc libwrap0
+	apt-get install -y libdbi-perl libdbd-mysql-perl psmisc libwrap0 libaio1 openssl
 
 RUN mkdir -p /var/lib/mysql; \
 	chown -R mysql /var/lib/mysql

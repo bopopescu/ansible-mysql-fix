@@ -1,8 +1,8 @@
 #!/bin/bash
 
 # mysqld_safe does not work really well here
-sudo -u mysql /usr/local/mysql/bin/mysqld --initialize-insecure
-sudo -u mysql /usr/local/mysql/bin/mysqld --skip-networking &
+/usr/local/mysql/bin/mysqld --initialize-insecure
+/usr/local/mysql/bin/mysqld --skip-networking &
 pid="$!"
 
 mysql=( /usr/local/mysql/bin/mysql --protocol=socket -uroot )
