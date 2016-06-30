@@ -1,5 +1,7 @@
-- shell: |
+- name: 'user_exists: command'
+  shell: |
     mysql -u root -h {{ inventory_hostname }} -e "SELECT count(*) FROM mysql.user WHERE user = '{{ user }}' AND host = '{{ host }}'"
   register: count
-- debug: 'msg="*** Failed to create user ***"'
+- name: 'user_exists: check'
+  debug: 'msg="*** Failed to create user ***"'
   when: 'count.stdout_lines[1] != "1"'

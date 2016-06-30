@@ -1,5 +1,7 @@
-- shell: |
+- name: 'user_can_connect: command'
+  shell: |
     mysql -h {{ inventory_hostname }} -u {{ user }} -p{{ password }} -e "SELECT 1"
   register: result
-- debug: 'msg="*** Failed to create user ***"'
+- name: 'user_can_connect: check'
+  debug: 'msg="*** Failed to create user ***"'
   when: 'result.stdout_lines[1] != "1"'
