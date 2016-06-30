@@ -2,6 +2,7 @@
 
 # mysqld_safe does not work really well here
 /usr/local/mysql/bin/mysqld --initialize-insecure
+/usr/local/mysql/bin/mysql_ssl_rsa_setup
 /usr/local/mysql/bin/mysqld --skip-networking &
 pid="$!"
 

@@ -13,6 +13,7 @@ RUN mkdir -p /var/lib/mysql; \
 	chown -R mysql /var/lib/mysql
 
 ADD install/mysql-5.6.31-linux-glibc2.5-x86_64.tar.gz /usr/local/
+COPY ssl/ /var/lib/mysql
 
 RUN ln -s /usr/local/mysql-5.6.31-linux-glibc2.5-x86_64 /usr/local/mysql
 
@@ -28,6 +29,9 @@ RUN { \
 		echo 'skip-host-cache'; \
 		echo 'skip-name-resolve'; \
 		echo 'datadir = /var/lib/mysql'; \
+		echo 'ssl-ca = ca.pem'; \
+		echo 'ssl-cert = server-cert.pem'; \
+		echo 'ssl-key = server-key.pem'; \
 	} > /etc/mysql/my.cnf
 
 VOLUME /var/lib/mysql
