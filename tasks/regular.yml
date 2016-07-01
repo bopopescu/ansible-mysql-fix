@@ -101,3 +101,24 @@
       state=absent
       login_host={{ inventory_hostname }}
       login_user=root
+
+- block: # Check errors on plugin when no pluggable_authentication
+  - name: Check errors on plugin when no pluggable_authentication
+    mysql_user: |
+      name=foo
+      host=%
+      password=foobar
+      plugin=mysql_native_password
+      login_host={{ inventory_hostname }}
+      login_user=root
+    when: 'not pluggable_auth|bool'
+    register: mysql_user_result
+    failed_when: mysql_user_result.msg != "Pluggable Authentication not supported in this version of MySQL"
+  - name: Delete user
+    mysql_user: |
+      name=foo
+      host_all=yes
+      state=absent
+      login_host={{ inventory_hostname }}
+      login_user=root
+    when: 'not pluggable_auth|bool'

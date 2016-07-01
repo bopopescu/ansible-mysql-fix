@@ -3,3 +3,6 @@
 
   tasks:
     - include: ../tasks/regular.yml
+    - include: ../tasks/pluggable.yml
+      when: 'pluggable_auth|bool'
+      tags: [ plug ]

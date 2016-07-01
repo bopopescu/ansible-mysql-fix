@@ -1,0 +1,135 @@
+- block: # Create user with mysql_old_password (clear password)
+  - name: Create user with mysql_old_password (clear password)
+    mysql_user: |
+      name=foo
+      host=%
+      password=foobar
+      plugin=mysql_old_password
+      login_host={{ inventory_hostname }}
+      login_user=root
+    when: 'old_password|bool and pluggable_cleartext|bool'
+  - include: ../tests/user_exists.yml user='foo' host='%'
+    when: 'old_password|bool and pluggable_cleartext|bool'
+  - include: ../tests/user_can_connect.yml user='foo' password='foobar'
+    when: 'old_password|bool and pluggable_cleartext|bool'
+  - name: Delete user
+    mysql_user: |
+      name=foo
+      host_all=yes
+      state=absent
+      login_host={{ inventory_hostname }}
+      login_user=root
+    when: 'old_password|bool and pluggable_cleartext|bool'
+
+- block: # Create user with mysql_old_password (encrypted password 'toto')
+  - name: Create user with mysql_old_password (encrypted password 'toto')
+    mysql_user: |
+      name=foo
+      host=%
+      password=3c90ae60272fb624
+      encrypted=yes
+      plugin=mysql_old_password
+      login_host={{ inventory_hostname }}
+      login_user=root
+    when: 'old_password|bool'
+  - include: ../tests/user_exists.yml user='foo' host='%'
+    when: 'old_password|bool'
+  - name: Delete user
+    mysql_user: |
+      name=foo
+      host_all=yes
+      state=absent
+      login_host={{ inventory_hostname }}
+      login_user=root
+    when: 'old_password|bool'
+
+- block: # Create user with sha256_password (clear password)
+  - name: Create user with sha256_password (clear password)
+    mysql_user: |
+      name=foo
+      host=%
+      password=tata
+      plugin=sha256_password
+      login_host={{ inventory_hostname }}
+      login_user=root
+    when: 'sha256_password|bool and pluggable_cleartext|bool'
+  - include: ../tests/user_exists.yml user='foo' host='%'
+    when: 'sha256_password|bool and pluggable_cleartext|bool'
+  - include: ../tests/user_can_connect.yml user='foo' password='tata'
+    when: 'sha256_password|bool and pluggable_cleartext|bool'
+  - name: Delete user
+    mysql_user: |
+      name=foo
+      host_all=yes
+      state=absent
+      login_host={{ inventory_hostname }}
+      login_user=root
+    when: 'sha256_password|bool and pluggable_cleartext|bool'
+
+- block: # Create user with sha256_password  (encrypted password 'toto')
+  - name: Create user with sha256_password  (encrypted password 'toto')
+    mysql_user: |
+      name=foo
+      host=%
+      password=JDUkEVU1GihxBSc5GXR2P3QpOCM9OU0kcXMvNEh1bWNjMm9OemN3SGNUQW54UmpIbnlad1hGaEtZUlp4YzI5cnNDQQA=
+      encrypted=yes
+      base64_password=yes
+      plugin=sha256_password
+      login_host={{ inventory_hostname }}
+      login_user=root
+    when: 'sha256_password|bool'
+  - include: ../tests/user_exists.yml user='foo' host='%'
+    when: 'sha256_password|bool'
+  - include: ../tests/user_can_connect.yml user='foo' password='toto'
+    when: 'sha256_password|bool'
+  - name: Delete user
+    mysql_user: |
+      name=foo
+      host_all=yes
+      state=absent
+      login_host={{ inventory_hostname }}
+      login_user=root
+    when: 'sha256_password|bool'
+
+- block: # Create user with auth_socket 
+  - name: Create user with auth_socket
+    mysql_user: |
+      name=foo
+      host=%
+      plugin={{ socket_plugin_name }}
+      login_host={{ inventory_hostname }}
+      login_user=root
+    when: 'auth_socket|bool'
+  - include: ../tests/user_exists.yml user='foo' host='%'
+    when: 'auth_socket|bool'
+  - include: ../tests/user_uses_auth_socket.yml user='foo' host='%' socket_plugin='{{ socket_plugin_name }}'
+    when: 'auth_socket|bool'
+  - name: Delete user
+    mysql_user: |
+      name=foo
+      host_all=yes
+      state=absent
+      login_host={{ inventory_hostname }}
+      login_user=root
+    when: 'auth_socket|bool'
+
+- block: # Check errors on plugin with clear password when no pluggable_cleartext
+  - name: Check errors on plugin with clear password when no pluggable_cleartext
+    mysql_user: |
+      name=foo
+      host=%
+      password=foobar
+      plugin=mysql_old_password
+      login_host={{ inventory_hostname }}
+      login_user=root
+    when: 'old_password|bool and not pluggable_cleartext|bool'
+    register: mysql_user_result
+    failed_when: mysql_user_result.msg != "Unencrypted plugin password not supported in this version of MySQL"
+  - name: Delete user
+    mysql_user: |
+      name=foo
+      host_all=yes
+      state=absent
+      login_host={{ inventory_hostname }}
+      login_user=root
+    when: 'old_password|bool and not pluggable_cleartext|bool'
