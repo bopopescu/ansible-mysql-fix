@@ -42,6 +42,13 @@ options:
     choices: [ "yes", "no" ]
     default: "no"
     version_added: "2.0"
+  base64_password:
+    description:
+      - Indicate that the 'password' field is a Base64-encoded. Useful for SHA256.
+    required: false
+    choices: [ "yes", "no" ]
+    default: "no"
+    version_added: "2.2"
   host:
     description:
       - the 'host' part of the MySQL username
@@ -97,13 +104,16 @@ options:
     version_added: "2.0"
     description:
       - C(always) will update passwords if they differ.  C(on_create) will only set the password for newly created users.
+  plugin:
+    description: Plugin used to authenticate this user.
+    required: false
+    default: null
 notes:
    - "MySQL server installs with default login_user of 'root' and no password. To secure this user
      as part of an idempotent playbook, you must create at least two tasks: the first must change the root user's password,
      without providing any login_user/login_password details. The second must drop a ~/.my.cnf file containing
      the new root credentials. Subsequent runs of the playbook will then succeed by reading the new credentials from
      the file."
-   - Currently, there is only support for the `mysql_native_password` encryted password hash module.
 
 author: "Jonathan Mainguy (@Jmainguy)"
 extends_documentation_fragment: mysql
@@ -160,6 +170,7 @@ import getpass
 import tempfile
 import re
 import string
+import base64
 try:
     import MySQLdb
 except ImportError:
@@ -177,10 +188,18 @@ VALID_PRIVS = frozenset(('CREATE', 'DROP', 'GRANT', 'GRANT OPTION',
                          'REPLICATION SLAVE', 'SHOW DATABASES', 'SHUTDOWN',
                          'SUPER', 'ALL', 'ALL PRIVILEGES', 'USAGE', 'REQUIRESSL'))
 
+PASSWORDLESS_PLUGINS = ['auth_socket']
+
 class InvalidPrivsError(Exception):
     pass
 
 class InvalidHashError(Exception):
+    pass
+
+class PluggableAuthNotSupportedError(Exception):
+    pass
+
+class UnsupportedPluginFeatureError(Exception):
     pass
 
 # ===========================================
@@ -258,7 +277,7 @@ def user_exists(cursor, user, host, host_all):
     count = cursor.fetchone()
     return count[0] > 0
 
-def user_add(cursor, user, host, host_all, password, encrypted, new_priv, check_mode):
+def user_add(cursor, user, host, host_all, password, encrypted, new_priv, check_mode, plugin):
     # we cannot create users without a proper hostname
     if host_all:
         return False
@@ -266,12 +285,36 @@ def user_add(cursor, user, host, host_all, password, encrypted, new_priv, check_
     if check_mode:
         return True
 
-    if password and encrypted:
-        cursor.execute("CREATE USER %s@%s IDENTIFIED BY PASSWORD %s", (user,host,password))
-    elif password and not encrypted:
-        cursor.execute("CREATE USER %s@%s IDENTIFIED BY %s", (user,host,password))
+    # Determine what user management method server uses
+    server_info = server_version_check(cursor)
+    
+    if plugin and not server_info['pluggable_auth']:
+        raise PluggableAuthNotSupportedError('Pluggable Authentication not supported in this version of MySQL')
+
+    if plugin:
+        if password and encrypted and plugin not in PASSWORDLESS_PLUGINS:
+			if server_info['maria_db']:
+				cursor.execute("CREATE USER %s@%s IDENTIFIED VIA %s USING %s", (user,host,plugin,password))
+			else:
+				cursor.execute("CREATE USER %s@%s IDENTIFIED WITH %s AS %s", (user,host,plugin,password))
+        elif password and not encrypted and plugin not in PASSWORDLESS_PLUGINS:
+            if server_info['new_style_password_update']:
+                cursor.execute("CREATE USER %s@%s IDENTIFIED WITH %s BY %s", (user,host,plugin,password))
+            else:
+                raise UnsupportedPluginFeatureError('Unencrypted plugin password not supported in this version of MySQL')
+        else:
+            # passwordless plugin and Pluggable Authentication is supported 
+            if server_info['maria_db']:
+                cursor.execute("CREATE USER %s@%s IDENTIFIED VIA %s", (user,host,plugin))
+            else:
+                cursor.execute("CREATE USER %s@%s IDENTIFIED WITH %s", (user,host,plugin))
     else:
-        cursor.execute("CREATE USER %s@%s", (user,host))
+        if password and encrypted:
+            cursor.execute("CREATE USER %s@%s IDENTIFIED BY PASSWORD %s", (user,host,password))
+        elif password and not encrypted:
+            cursor.execute("CREATE USER %s@%s IDENTIFIED BY %s", (user,host,password))
+        else:
+            cursor.execute("CREATE USER %s@%s", (user,host))
 
     if new_priv is not None:
         for db_table, priv in new_priv.iteritems():
@@ -521,6 +564,7 @@ def main():
             user=dict(required=True, aliases=['name']),
             password=dict(default=None, no_log=True, type='str'),
             encrypted=dict(default=False, type='bool'),
+            base64_password=dict(default=False, type='bool'),
             host=dict(default="localhost"),
             host_all=dict(type="bool", default="no"),
             state=dict(default="present", choices=["absent", "present"]),
@@ -528,6 +572,7 @@ def main():
             append_privs=dict(default=False, type='bool'),
             check_implicit_admin=dict(default=False, type='bool'),
             update_password=dict(default="always", choices=["always", "on_create"]),
+            plugin=dict(default=None),
             connect_timeout=dict(default=30, type='int'),
             config_file=dict(default="~/.my.cnf", type='path'),
             sql_log_bin=dict(default=True, type='bool'),
@@ -542,6 +587,7 @@ def main():
     user = module.params["user"]
     password = module.params["password"]
     encrypted = module.boolean(module.params["encrypted"])
+    base64_password = module.boolean(module.params["base64_password"])
     host = module.params["host"].lower()
     host_all = module.params["host_all"]
     state = module.params["state"]
@@ -551,6 +597,7 @@ def main():
     config_file = module.params['config_file']
     append_privs = module.boolean(module.params["append_privs"])
     update_password = module.params['update_password']
+    plugin = module.params['plugin']
     ssl_cert = module.params["ssl_cert"]
     ssl_key = module.params["ssl_key"]
     ssl_ca = module.params["ssl_ca"]
@@ -591,11 +638,20 @@ def main():
             e = get_exception()
             module.fail_json(msg="invalid privileges string: %s" % str(e))
 
+    if base64_password:
+        try:
+            decoded_password = base64.b64decode(password)
+        except TypeError:
+            e = get_exception()
+            module.fail_json(msg="invalid Base64 string: %s" % str(e))
+    else:
+        decoded_password = password
+
     if state == "present":
         if user_exists(cursor, user, host, host_all):
             try:
                 if update_password == 'always':
-                    changed = user_mod(cursor, user, host, host_all, password, encrypted, priv, append_privs, module.check_mode)
+                    changed = user_mod(cursor, user, host, host_all, decoded_password, encrypted, priv, append_privs, module.check_mode)
                 else:
                     changed = user_mod(cursor, user, host, host_all, None, encrypted, priv, append_privs, module.check_mode)
 
@@ -606,8 +662,8 @@ def main():
             if host_all:
                 module.fail_json(msg="host_all parameter cannot be used when adding a user")
             try:
-                changed = user_add(cursor, user, host, host_all, password, encrypted, priv, module.check_mode)
-            except (SQLParseError, InvalidPrivsError, MySQLdb.Error):
+                changed = user_add(cursor, user, host, host_all, decoded_password, encrypted, priv, module.check_mode, plugin)
+            except (SQLParseError, InvalidPrivsError, MySQLdb.Error, PluggableAuthNotSupportedError, UnsupportedPluginFeatureError):
                 e = get_exception()
                 module.fail_json(msg=str(e))
     elif state == "absent":
