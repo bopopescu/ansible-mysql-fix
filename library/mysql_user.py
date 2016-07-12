@@ -252,7 +252,7 @@ def server_version_check(cursor):
     server = {
         'maria_db': maria_db,
         'pluggable_auth': ( maria_db and version >= [5, 2, 0] ) or ( version >= [5, 5, 7] ),
-        'new_style_password_update': not maria_db and version >= [5, 7, 6],
+        'cleartext_plugin_password': not maria_db and version >= [5, 7, 6],
         'old_user_mgmt': maria_db or version < [5, 7, 0]
     }
      
@@ -298,7 +298,7 @@ def user_add(cursor, user, host, host_all, password, encrypted, new_priv, check_
 			else:
 				cursor.execute("CREATE USER %s@%s IDENTIFIED WITH %s AS %s", (user,host,plugin,password))
         elif password and not encrypted and plugin not in PASSWORDLESS_PLUGINS:
-            if server_info['new_style_password_update']:
+            if server_info['cleartext_plugin_password']:
                 cursor.execute("CREATE USER %s@%s IDENTIFIED WITH %s BY %s", (user,host,plugin,password))
             else:
                 raise UnsupportedPluginFeatureError('Unencrypted plugin password not supported in this version of MySQL')
