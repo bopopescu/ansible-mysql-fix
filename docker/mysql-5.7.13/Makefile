@@ -2,6 +2,8 @@ TAG := 5.7.13
 PORT := 3319
 URL := http://cdn.mysql.com//Downloads/MySQL-5.7/mysql-5.7.13-linux-glibc2.5-x86_64.tar.gz
 
+.PHONY: build it run download
+
 build:
 	docker build -t ansible_mysql_user/mysql:$(TAG) .
 

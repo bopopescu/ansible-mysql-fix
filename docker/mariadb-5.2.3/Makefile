@@ -2,6 +2,8 @@ TAG := 5.2.3
 PORT := 3307
 URL := http://archive.mariadb.org//mariadb-5.2.3/kvm-bintar-hardy-amd64/mariadb-5.2.3-Linux-x86_64.tar.gz
 
+.PHONY: build it run download
+
 build:
 	docker build -t ansible_mysql_user/mariadb:$(TAG) .
 
